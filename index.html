@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>工具箱</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#2f3a4a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="工具箱">
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#202327;--mut:#6f7681;--line:#dde0e5;--acc:#2f5f9e;--onacc:#fff;--sel:#e3ebf6;--head:#e9ecf0;
+box-sizing:border-box}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15171a;--card:#1d2024;--ink:#eceff3;--mut:#9aa1ac;--line:#353a41;--acc:#8db8ee;--onacc:#10202f;--sel:#2a3646;--head:#2e3238}}
+:root[data-theme="dark"]{--bg:#15171a;--card:#1d2024;--ink:#eceff3;--mut:#9aa1ac;--line:#353a41;--acc:#8db8ee;--onacc:#10202f;--sel:#2a3646;--head:#2e3238}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden}
+#shell{position:fixed;inset:0;display:flex;padding-top:env(safe-area-inset-top,0px);background:var(--bg)}
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+#bar{height:46px;display:flex;align-items:center;gap:10px;padding:0 10px;border-bottom:1px solid var(--line);flex:none}
+#bar h1{font-size:17px;margin:0;font-weight:600;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+button{font:inherit;color:var(--ink);background:var(--head);border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+#fw{flex:1;min-height:0;padding-bottom:env(safe-area-inset-bottom,0px);background:var(--bg)}
+iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
+#side{width:270px;flex:none;background:var(--card);border-right:1px solid var(--line);display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px)}
+#side h2{font-size:17px;margin:0;padding:14px 16px;border-bottom:1px solid var(--line)}
+#ls{flex:1;overflow:auto}
+.it{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid var(--line);border-radius:0;background:transparent;padding:12px 16px}
+.it.on{background:var(--sel)}
+.it b{display:flex;align-items:center;gap:8px;font-weight:600}
+.it span.d{display:block;font-size:13px;color:var(--mut);font-weight:400}
+.new{font-size:11px;background:var(--acc);color:var(--onacc);border-radius:10px;padding:0 7px;line-height:18px}
+.ft{padding:12px 16px;border-top:1px solid var(--line);display:grid;gap:8px;font-size:12px;color:var(--mut)}
+#mask{display:none}
+@media (max-width:899px){
+  #side{position:fixed;top:0;bottom:0;left:0;z-index:20;padding-top:env(safe-area-inset-top,0px);transform:translateX(-100%);transition:transform .22s}
+  body.open #side{transform:none}
+  body.open #mask{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:15}
+}
+@media (min-width:900px){#menu{display:none}}
+</style>
+</head>
+<body>
+<div id="shell">
+  <nav id="side" aria-label="工具清單">
+    <h2>工具箱</h2>
+    <div id="ls"></div>
+    <div class="ft"><span id="chk"></span><button id="rl">重新載入目前工具</button><button id="up">檢查新工具</button></div>
+  </nav>
+  <div id="main">
+    <div id="bar"><button id="menu" aria-label="開啟選單">選單</button><h1 id="ttl">工具箱</h1></div>
+    <div id="fw"><iframe id="fr" title="工具" allow="clipboard-read; clipboard-write"></iframe></div>
+  </div>
+</div>
+<div id="mask"></div>
+<script>
+const DEF=[{id:'calc-notes',name:'算式記事',desc:'便條紙式試算表',url:'../calc-notes/'}];
+let tools=[],curId=null;
+const $=id=>document.getElementById(id);
+const get=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
+const set=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}};
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+async function discover(){
+  const m=/^([^.]+)\.github\.io$/.exec(location.hostname);
+  if(!m)return get('hub_found',[]);
+  try{
+    const r=await fetch('https://api.github.com/users/'+m[1]+'/repos?per_page=100');
+    if(!r.ok)throw new Error('api');
+    const a=await r.json(),self=location.pathname.split('/')[1];
+    const out=a.filter(x=>x.has_pages&&!x.fork&&Array.isArray(x.topics)&&x.topics.includes('hub-tool')&&x.name!==self).map(x=>{
+      const d=(x.description||'').split(/\s[-|]\s/);
+      return {id:x.name,name:(d[0]||x.name).trim(),desc:(d[1]||'').trim(),url:'../'+x.name+'/'}});
+    set('hub_found',out);return out;
+  }catch(e){return get('hub_found',[])}
+}
+async function loadTools(manual){
+  let ok=false;
+  try{
+    const r=await fetch('tools.json?t='+Date.now(),{cache:'no-store'});
+    const d=await r.json();
+    if(d&&Array.isArray(d.tools)){tools=d.tools.filter(t=>t&&t.id&&t.name&&t.url);set('hub_tools',tools);ok=true}
+  }catch(e){}
+  if(!ok)tools=get('hub_tools',DEF);
+  const found=await discover();
+  found.forEach(x=>{if(!tools.some(t=>t.id===x.id))tools.push(x)});
+  const first=localStorage.getItem('hub_seen')===null;
+  if(first)set('hub_seen',tools.map(t=>t.id));
+  set('hub_chk',Date.now());
+  drawList();
+  if(!curId){const last=localStorage.getItem('hub_last');openTool(tools.find(t=>t.id===last)?last:(tools[0]&&tools[0].id),true)}
+  if(manual)toast(ok?'已檢查,共 '+tools.length+' 個工具':'無法連線,顯示上次的清單');
+}
+function drawList(){
+  const seen=get('hub_seen',[]);
+  $('ls').innerHTML=tools.map(t=>'<button class="it'+(t.id===curId?' on':'')+'" data-id="'+esc(t.id)+'"><b>'+esc(t.name)+(seen.includes(t.id)?'':'<span class="new">新</span>')+'</b>'+(t.desc?'<span class="d">'+esc(t.desc)+'</span>':'')+'</button>').join('')||'<div class="ft">tools.json 裡還沒有工具。</div>';
+  const c=get('hub_chk',0),d=new Date(c),p=x=>String(x).padStart(2,'0');
+  $('chk').textContent=c?'清單更新 '+(d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()):'';
+}
+function openTool(id,silent){
+  const t=tools.find(x=>x.id===id);if(!t)return;
+  curId=id;localStorage.setItem('hub_last',id);
+  const seen=get('hub_seen',[]);if(!seen.includes(id)){seen.push(id);set('hub_seen',seen)}
+  $('fr').src=t.url;$('ttl').textContent=t.name;document.title=t.name;
+  document.body.classList.remove('open');drawList();
+}
+function toast(t){const e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;z-index:40;font-size:14px';document.body.appendChild(e);setTimeout(()=>e.remove(),2200)}
+$('ls').onclick=e=>{const b=e.target.closest('.it');if(b)openTool(b.dataset.id)};
+$('menu').onclick=()=>document.body.classList.add('open');
+$('mask').onclick=()=>document.body.classList.remove('open');
+$('rl').onclick=()=>{const t=tools.find(x=>x.id===curId);if(t){$('fr').src='about:blank';setTimeout(()=>{$('fr').src=t.url},50)}document.body.classList.remove('open')};
+$('up').onclick=()=>{loadTools(true);if(navigator.serviceWorker)navigator.serviceWorker.getRegistration().then(r=>r&&r.update())};
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-get('hub_chk',0)>10*60e3)loadTools(false)});
+loadTools(false);
+if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+</script>
+</body>
+</html>
