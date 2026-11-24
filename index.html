@@ -71,7 +71,7 @@ async function discover(){
     const r=await fetch('https://api.github.com/users/'+m[1]+'/repos?per_page=100');
     if(!r.ok)throw new Error('api');
     const a=await r.json(),self=location.pathname.split('/')[1];
-    const out=a.filter(x=>x.has_pages&&!x.fork&&Array.isArray(x.topics)&&x.topics.includes('hub-tool')&&x.name!==self).map(x=>{
+    const out=a.filter(x=>x.has_pages&&!x.fork&&Array.isArray(x.topics)&&x.topics.some(t=>t==='hub-tool'||t==='hub-tooling')&&x.name!==self).map(x=>{
       const d=(x.description||'').split(/\s[-|]\s/);
       return {id:x.name,name:(d[0]||x.name).trim(),desc:(d[1]||'').trim(),url:'../'+x.name+'/'}});
     set('hub_found',out);return out;
