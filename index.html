@@ -46,6 +46,7 @@ iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
 </head>
 <body>
 <div id="shell">
+  <div id="mask"></div>
   <nav id="side" aria-label="工具清單">
     <h2>工具箱</h2>
     <div id="ls"></div>
@@ -56,9 +57,8 @@ iframe{width:100%;height:100%;border:0;display:block;background:var(--bg)}
     <div id="fw"><iframe id="fr" title="工具" allow="clipboard-read; clipboard-write"></iframe></div>
   </div>
 </div>
-<div id="mask"></div>
 <script>
-const DEF=[{id:'calc-notes',name:'算式記事',desc:'便條紙式試算表',url:'../calc-notes/'}];
+const DEF=[];
 let tools=[],curId=null;
 const $=id=>document.getElementById(id);
 const get=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}};
@@ -86,7 +86,7 @@ async function loadTools(manual){
   }catch(e){}
   if(!ok)tools=get('hub_tools',DEF);
   const found=await discover();
-  found.forEach(x=>{if(!tools.some(t=>t.id===x.id))tools.push(x)});
+  found.forEach(x=>{if(!tools.some(t=>t.id===x.id||t.url===x.url))tools.push(x)});
   const first=localStorage.getItem('hub_seen')===null;
   if(first)set('hub_seen',tools.map(t=>t.id));
   set('hub_chk',Date.now());
@@ -96,7 +96,7 @@ async function loadTools(manual){
 }
 function drawList(){
   const seen=get('hub_seen',[]);
-  $('ls').innerHTML=tools.map(t=>'<button class="it'+(t.id===curId?' on':'')+'" data-id="'+esc(t.id)+'"><b>'+esc(t.name)+(seen.includes(t.id)?'':'<span class="new">新</span>')+'</b>'+(t.desc?'<span class="d">'+esc(t.desc)+'</span>':'')+'</button>').join('')||'<div class="ft">tools.json 裡還沒有工具。</div>';
+  $('ls').innerHTML=tools.map(t=>'<button class="it'+(t.id===curId?' on':'')+'" data-id="'+esc(t.id)+'"><b>'+esc(t.name)+(seen.includes(t.id)?'':'<span class="new">新</span>')+'</b>'+(t.desc?'<span class="d">'+esc(t.desc)+'</span>':'')+'</button>').join('')||'<div class="ft">還沒有找到工具。請確認倉庫是公開的、已加 hub-tool 標籤並開啟 Pages。</div>';
   const c=get('hub_chk',0),d=new Date(c),p=x=>String(x).padStart(2,'0');
   $('chk').textContent=c?'清單更新 '+(d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()):'';
 }
@@ -109,6 +109,11 @@ function openTool(id,silent){
 }
 function toast(t){const e=document.createElement('div');e.textContent=t;e.style.cssText='position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;z-index:40;font-size:14px';document.body.appendChild(e);setTimeout(()=>e.remove(),2200)}
 $('ls').onclick=e=>{const b=e.target.closest('.it');if(b)openTool(b.dataset.id)};
+$('fr').addEventListener('load',()=>{
+  try{const t=$('fr').contentDocument.title||'';
+    if(/404|not found/i.test(t)){const x=tools.find(q=>q.id===curId);toast('找不到工具頁面:'+(x?x.url:'')+',請確認倉庫名稱與 Pages 已開啟')}}
+  catch(e){}
+});
 $('menu').onclick=()=>document.body.classList.add('open');
 $('mask').onclick=()=>document.body.classList.remove('open');
 $('rl').onclick=()=>{const t=tools.find(x=>x.id===curId);if(t){$('fr').src='about:blank';setTimeout(()=>{$('fr').src=t.url},50)}document.body.classList.remove('open')};

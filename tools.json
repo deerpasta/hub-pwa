@@ -1,7 +1,3 @@
 {
- "tools": [
-  {"id": "calc-notes", "name": "算式記事", "desc": "便條紙式試算表", "url": "../calc-notes/"},
-  {"id": "clip", "name": "剪貼簿", "desc": "文字與圖片,點一下複製", "url": "../clip/"},
-  {"id": "fx", "name": "匯率換算", "desc": "旅遊多幣別換算", "url": "../exchange_rate-pwa/"}
- ]
+ "tools": []
 }
